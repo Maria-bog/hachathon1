@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта писем России</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">✉️ Карта писем России</h1>
+                <p class="subtitle">Историческая переписка через открытки и письма</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-layout">
+            <!-- Map Section -->
+            <div class="map-section">
+                <div class="map-container">
+                    <div id="map"></div>
+                    <div class="map-controls">
+                        <div class="control-group">
+                            <label>Тема:</label>
+                            <select id="themeFilter">
+                                <option value="all">Все темы</option>
+                                <option value="love">Любовь</option>
+                                <option value="family">Семья</option>
+                                <option value="friendship">Дружба</option>
+                                <option value="congratulations">Поздравления</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <!-- Statistics -->
+                <div class="stats-panel">
+                    <h3>📊 Общая статистика</h3>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalLetters">0</div>
+                            <div class="stat-label">Всего писем</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="totalCities">0</div>
+                            <div class="stat-label">Городов</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- City Info -->
+                <div class="city-panel" id="cityPanel" style="display: none;">
+                    <div class="city-header">
+                        <h3 id="cityName">Город</h3>
+                        <button class="close-btn" id="closePanel">×</button>
+                    </div>
+                    <div class="city-stats">
+                        <div class="city-stat">
+                            <span class="city-stat-label">Писем:</span>
+                            <span class="city-stat-value" id="cityLetterCount">0</span>
+                        </div>
+                    </div>
+                    <div class="letters-section">
+                        <h4>📨 Письма из этого города</h4>
+                        <div class="letters-list" id="lettersList">
+                            <!-- Letters will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Themes -->
+                <div class="themes-panel">
+                    <h3>🎭 Популярные темы</h3>
+                    <div class="themes-list" id="themesList">
+                        <!-- Themes will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/js/app.js"></script>
+    <!-- Временная кнопка для отладки -->
+    <div style="position: absolute; top: 100px; right: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 5px;">
+        <button onclick="app.debugMap()" style="padding: 5px 10px;">Debug Map</button>
+    </div>
+
+    <script>
+    // Добавьте этот метод в класс PostcardMap
+    PostcardMap.prototype.debugMap = function() {
+        console.log("=== DEBUG MAP ===");
+        console.log("Всего городов:", this.cities.length);
+        console.log("Маркеров на карте:", this.markers.length);
+        console.log("Связей на карте:", this.connections ? this.connections.length : 0);
+        
+        const citiesWithCoords = this.cities.filter(city => city.latitude && city.longitude);
+        console.log("Города с координатами:", citiesWithCoords.length);
+        
+        if (citiesWithCoords.length > 0) {
+            console.log("Первые 5 городов с координатами:");
+            citiesWithCoords.slice(0, 5).forEach(city => {
+                console.log(`- ${city.name}: ${city.letter_count} писем, координаты: ${city.latitude}, ${city.longitude}`);
+            });
+        }
+        
+        // Принудительно увеличиваем масштаб к первому городу
+        if (this.markers.length > 0) {
+            const firstMarker = this.markers[0];
+            this.map.setView(firstMarker.getLatLng(), 8);
+            console.log("Увеличили масштаб к первому маркеру");
+        }
+        
+        // Пересоздаем маркеры и связи
+        this.createMarkers();
+    };
+    </script>
+</body>
+</html>
