@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Карта писем России</title>
-    <link rel="stylesheet" href="/css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
     <div class="container">
@@ -24,18 +24,6 @@
             <div class="map-section">
                 <div class="map-container">
                     <div id="map"></div>
-                    <div class="map-controls">
-                        <div class="control-group">
-                            <label>Тема:</label>
-                            <select id="themeFilter">
-                                <option value="all">Все темы</option>
-                                <option value="love">Любовь</option>
-                                <option value="family">Семья</option>
-                                <option value="friendship">Дружба</option>
-                                <option value="congratulations">Поздравления</option>
-                            </select>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -87,41 +75,87 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="/js/app.js"></script>
-    <!-- Временная кнопка для отладки -->
-    <div style="position: absolute; top: 100px; right: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 5px;">
-        <button onclick="app.debugMap()" style="padding: 5px 10px;">Debug Map</button>
+    <!-- Filter Panel -->
+    <div class="filter-panel-debug">
+        <h4>🎛️ Фильтры</h4>
+        
+        <div class="filter-group-debug">
+            <label id="cityLimitLabel">Лимит городов: 80</label>
+            <input type="range" id="cityLimit" min="20" max="150" value="80" 
+                   oninput="updateCityLimit(this.value)">
+        </div>
+        
+        <div class="filter-group-debug">
+            <label id="minLettersLabel">Мин. писем: 3</label>
+            <input type="range" id="minLetters" min="1" max="10" value="3" 
+                   oninput="updateMinLetters(this.value)">
+        </div>
+        
+        <div class="filter-group-debug">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" id="showConnections" checked 
+                       onchange="updateConnections(this.checked)">
+                <span style="font-weight: 600; color: #555; margin-left: 8px;">Показывать связи</span>
+            </label>
+        </div>
+        
+        <button onclick="applyFilters()" class="apply-btn-debug">
+            🔄 Применить фильтры
+        </button>
+
+        <!-- Отладочная информация -->
+        <div class="debug-info">
+            <div>Городов: <span id="debugCityCount">0</span></div>
+            <div>Фильтры: <span id="debugFilters">topCities=80, minLetters=3</span></div>
+        </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-    // Добавьте этот метод в класс PostcardMap
-    PostcardMap.prototype.debugMap = function() {
-        console.log("=== DEBUG MAP ===");
-        console.log("Всего городов:", this.cities.length);
-        console.log("Маркеров на карте:", this.markers.length);
-        console.log("Связей на карте:", this.connections ? this.connections.length : 0);
-        
-        const citiesWithCoords = this.cities.filter(city => city.latitude && city.longitude);
-        console.log("Города с координатами:", citiesWithCoords.length);
-        
-        if (citiesWithCoords.length > 0) {
-            console.log("Первые 5 городов с координатами:");
-            citiesWithCoords.slice(0, 5).forEach(city => {
-                console.log(`- ${city.name}: ${city.letter_count} писем, координаты: ${city.latitude}, ${city.longitude}`);
-            });
+        // Простые обработчики для фильтров
+        function updateCityLimit(value) {
+            document.getElementById('cityLimitLabel').textContent = 'Лимит городов: ' + value;
+            updateDebugInfo();
         }
-        
-        // Принудительно увеличиваем масштаб к первому городу
-        if (this.markers.length > 0) {
-            const firstMarker = this.markers[0];
-            this.map.setView(firstMarker.getLatLng(), 8);
-            console.log("Увеличили масштаб к первому маркеру");
+
+        function updateMinLetters(value) {
+            document.getElementById('minLettersLabel').textContent = 'Мин. писем: ' + value;
+            updateDebugInfo();
         }
-        
-        // Пересоздаем маркеры и связи
-        this.createMarkers();
-    };
+
+        function updateConnections(checked) {
+            updateDebugInfo();
+        }
+
+        function applyFilters() {
+            if (window.app && window.app.applyNewFilters) {
+                window.app.applyNewFilters();
+            } else {
+                alert('Приложение еще загружается...');
+            }
+        }
+
+        function updateDebugInfo() {
+            const cityLimit = document.getElementById('cityLimit').value;
+            const minLetters = document.getElementById('minLetters').value;
+            const showConnections = document.getElementById('showConnections').checked;
+            
+            document.getElementById('debugFilters').textContent = 
+                `topCities=${cityLimit}, minLetters=${minLetters}, connections=${showConnections}`;
+            
+            if (window.app) {
+                document.getElementById('debugCityCount').textContent = window.app.filteredCities ? window.app.filteredCities.length : 0;
+            }
+        }
+
+        // Инициализация отладочной информации
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDebugInfo();
+            
+            // Обновляем отладочную информацию каждые 2 секунды
+            setInterval(updateDebugInfo, 2000);
+        });
     </script>
+    <script src="/js/app.js"></script>
 </body>
 </html>

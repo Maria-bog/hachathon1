@@ -3,6 +3,7 @@ import sqlite3
 import os
 import pandas as pd
 import random
+from data_processor_light import db
 
 class DatabaseInitializer:
     def __init__(self, db_path="postcards.db"):

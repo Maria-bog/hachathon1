@@ -29,6 +29,10 @@ class PostcardMap {
         this.initEventListeners();
         this.updateStatistics();
         this.createFilterControls();
+        
+        // Инициализируем лейблы
+        this.updateFilterLabels();
+        this.updateDebugInfo();
     }
 
     async loadData() {
@@ -46,15 +50,121 @@ class PostcardMap {
         }
     }
 
-    applyFilters() {
-        console.log("🎛️ Применение фильтров...");
+    // app.js - обновите метод applyNewFilters
+    async applyNewFilters() {
+        console.log("🔄 Применение новых фильтров...");
         
-        // Фильтруем города
-        this.filteredCities = this.cities.filter(city => 
-            (city.letter_count || 0) >= this.filters.minLetters
-        ).slice(0, this.filters.topCities);
+        const applyBtn = document.querySelector('.apply-btn');
+        const originalText = applyBtn.textContent;
+        applyBtn.textContent = '⏳ Загрузка...';
+        applyBtn.disabled = true;
         
-        console.log(`📍 После фильтрации: ${this.filteredCities.length} городов`);
+        try {
+            // Обновляем фильтры из UI
+            this.updateFiltersFromUI();
+            
+            this.applyFilters();
+            
+            // Удаляем старые маркеры и связи
+            this.markers.forEach(marker => this.map.removeLayer(marker));
+            this.connections.forEach(connection => this.map.removeLayer(connection));
+            this.markers = [];
+            this.connections = [];
+            
+            // Пересчитываем связи если нужно
+            if (this.filters.showConnections) {
+                await this.calculateConnections();
+            } else {
+                this.cityConnections = [];
+            }
+            
+            // Создаем новые маркеры
+            this.createMarkers();
+            
+            // Рисуем новые связи если нужно
+            if (this.filters.showConnections && this.cityConnections.length > 0) {
+                this.drawConnections();
+            }
+            
+            console.log("✅ Фильтры применены успешно");
+            
+        } catch (error) {
+            console.error('❌ Ошибка применения фильтров:', error);
+        } finally {
+            applyBtn.textContent = '🔄 Применить';
+            applyBtn.disabled = false;
+        }
+    }
+
+// Добавьте новый метод для обновления фильтров из UI
+    updateFiltersFromUI() {
+        const cityLimitSlider = document.getElementById('cityLimit');
+        const minLettersSlider = document.getElementById('minLetters');
+        const showConnectionsCheckbox = document.getElementById('showConnections');
+        
+        if (cityLimitSlider) {
+            this.filters.topCities = parseInt(cityLimitSlider.value);
+        }
+        if (minLettersSlider) {
+            this.filters.minLetters = parseInt(minLettersSlider.value);
+        }
+        if (showConnectionsCheckbox) {
+            this.filters.showConnections = showConnectionsCheckbox.checked;
+        }
+        
+        console.log("🎛️ Обновленные фильтры:", this.filters);
+    }
+
+    // Обновите метод updateFilter
+    updateFilter(filterName, value) {
+        console.log(`🔄 Обновление фильтра ${filterName}: ${value} (тип: ${typeof value})`);
+        
+        if (filterName === 'showConnections') {
+            this.filters[filterName] = Boolean(value);
+        } else {
+            this.filters[filterName] = parseInt(value);
+        }
+        
+        // Немедленно обновляем UI
+        this.updateFilterLabels();
+        
+        // Обновляем отладочную информацию
+        this.updateDebugInfo();
+    }
+
+    updateFilterLabels() {
+        console.log("🔄 Обновление лейблов фильтров...");
+        
+        // Используем конкретные ID элементов
+        const cityLimitLabel = document.getElementById('cityLimitLabel');
+        const minLettersLabel = document.getElementById('minLettersLabel');
+        
+        if (cityLimitLabel) {
+            cityLimitLabel.textContent = `Лимит городов: ${this.filters.topCities}`;
+            console.log(`✅ Обновлен cityLimitLabel: ${this.filters.topCities}`);
+        } else {
+            console.log("❌ Не найден cityLimitLabel");
+        }
+        
+        if (minLettersLabel) {
+            minLettersLabel.textContent = `Мин. писем: ${this.filters.minLetters}`;
+            console.log(`✅ Обновлен minLettersLabel: ${this.filters.minLetters}`);
+        } else {
+            console.log("❌ Не найден minLettersLabel");
+        }
+    }
+
+    updateDebugInfo() {
+        const debugCityCount = document.getElementById('debugCityCount');
+        const debugFilters = document.getElementById('debugFilters');
+        
+        if (debugCityCount) {
+            debugCityCount.textContent = this.filteredCities.length;
+        }
+        
+        if (debugFilters) {
+            debugFilters.textContent = `topCities=${this.filters.topCities}, minLetters=${this.filters.minLetters}`;
+        }
     }
 
     initMap() {
@@ -156,11 +266,36 @@ class PostcardMap {
         return contentLower.includes(cityNameLower);
     }
 
+    // app.js - замените метод createMarkers
     createMarkers() {
         this.markers.forEach(marker => this.map.removeLayer(marker));
         this.markers = [];
 
         console.log(`🔄 Создание маркеров для ${this.filteredCities.length} городов`);
+
+        // Создаем кастомные иконки разного размера
+        const createCustomIcon = (letterCount) => {
+            const radius = this.calculateRadius(letterCount);
+            const intensity = Math.min(1, Math.log(letterCount || 1) / Math.log(50));
+            const hue = 210;
+            const saturation = 80 + (intensity * 20);
+            const lightness = 50 - (intensity * 15);
+            
+            return L.divIcon({
+                className: 'city-marker',
+                html: `<div style="
+                    width: ${radius}px; 
+                    height: ${radius}px; 
+                    background: hsl(${hue}, ${saturation}%, ${lightness}%); 
+                    border: 2px solid white; 
+                    border-radius: 50%; 
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    cursor: pointer;
+                "></div>`,
+                iconSize: [radius, radius],
+                iconAnchor: [radius/2, radius/2]
+            });
+        };
 
         this.filteredCities.forEach(city => {
             if (!city.latitude || !city.longitude) return;
@@ -171,20 +306,9 @@ class PostcardMap {
             if (isNaN(lat) || isNaN(lng)) return;
 
             try {
-                // Яркий синий градиент в зависимости от количества писем
-                const intensity = Math.min(1, Math.log(city.letter_count || 1) / Math.log(50));
-                const hue = 210; // Яркий синий
-                const saturation = 80 + (intensity * 20);
-                const lightness = 50 - (intensity * 15);
-                
-                const marker = L.circleMarker([lat, lng], {
-                    radius: this.calculateRadius(city.letter_count),
-                    fillColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-                    color: '#ffffff',
-                    weight: 2, // Уменьшили толщину обводки
-                    opacity: 1,
-                    fillOpacity: 0.85,
-                    className: 'city-marker'
+                const marker = L.marker([lat, lng], {
+                    icon: createCustomIcon(city.letter_count || 1),
+                    title: city.name
                 }).addTo(this.map);
 
                 marker.bindPopup(`
@@ -197,28 +321,19 @@ class PostcardMap {
                 `);
 
                 marker.cityId = city.id;
-                marker.on('click', () => {
+                
+                // Упрощаем обработчики событий
+                marker.on('click', (e) => {
+                    e.originalEvent.stopPropagation();
                     this.showCityDetail(city.id);
                 });
 
                 marker.on('mouseover', () => {
-                    marker.setStyle({
-                        fillColor: `hsl(${hue}, 100%, 45%)`,
-                        weight: 3
-                    });
-                    if (this.filters.showConnections) {
-                        this.highlightConnections(city.id);
-                    }
+                    marker.setZIndexOffset(1000);
                 });
 
                 marker.on('mouseout', () => {
-                    marker.setStyle({
-                        fillColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-                        weight: 2
-                    });
-                    if (this.filters.showConnections) {
-                        this.resetConnections();
-                    }
+                    marker.setZIndexOffset(0);
                 });
 
                 this.markers.push(marker);
@@ -471,48 +586,22 @@ class PostcardMap {
             }
         }
     }
-
-    async applyNewFilters() {
-        console.log("🔄 Применение новых фильтров...");
+    applyFilters() {
+        console.log("🔄 Применение фильтров...");
         
-        const applyBtn = document.querySelector('.apply-btn');
-        const originalText = applyBtn.textContent;
-        applyBtn.textContent = '⏳ Загрузка...';
-        applyBtn.disabled = true;
+        // Фильтруем города по минимальному количеству писем
+        let filtered = this.cities.filter(city => 
+            (city.letter_count || 0) >= this.filters.minLetters
+        );
         
-        try {
-            this.applyFilters();
-            
-            // Удаляем старые маркеры и связи
-            this.markers.forEach(marker => this.map.removeLayer(marker));
-            this.connections.forEach(connection => this.map.removeLayer(connection));
-            this.markers = [];
-            this.connections = [];
-            
-            // Пересчитываем связи если нужно
-            if (this.filters.showConnections) {
-                await this.calculateConnections();
-            } else {
-                this.cityConnections = [];
-            }
-            
-            // Создаем новые маркеры
-            this.createMarkers();
-            
-            // Рисуем новые связи если нужно
-            if (this.filters.showConnections) {
-                this.drawConnections();
-            }
-            
-            console.log("✅ Фильтры применены успешно");
-            
-        } catch (error) {
-            console.error('❌ Ошибка применения фильтров:', error);
-        } finally {
-            applyBtn.textContent = originalText;
-            applyBtn.disabled = false;
-        }
+        // Берем топ-N городов по количеству писем
+        filtered = filtered.slice(0, this.filters.topCities);
+        
+        console.log(`✅ После фильтрации: ${filtered.length} городов`);
+        this.filteredCities = filtered;
     }
+
+    
 }
 
 // Инициализация приложения

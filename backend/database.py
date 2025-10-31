@@ -1,13 +1,9 @@
-# database.py
 import sqlite3
 import os
 
 class Database:
     def __init__(self, db_path="postcards.db"):
         self.db_path = db_path
-        # Проверяем существование базы
-        if not os.path.exists(self.db_path):
-            print(f"⚠️ База данных {self.db_path} не найдена!")
     
     def get_cities(self):
         try:
@@ -19,7 +15,6 @@ class Database:
             cities = [dict(row) for row in cursor.fetchall()]
             
             conn.close()
-            print(f"✅ Загружено {len(cities)} городов из БД")
             return cities
         except Exception as e:
             print(f"❌ Ошибка загрузки городов: {e}")
@@ -39,9 +34,6 @@ class Database:
                 cursor.execute('SELECT * FROM letters WHERE city_id = ?', (city_id,))
                 letters = [dict(row) for row in cursor.fetchall()]
                 city['letters'] = letters
-                print(f"✅ Загружено {len(letters)} писем для города {city['name']}")
-            else:
-                print(f"⚠️ Город с ID {city_id} не найден")
             
             conn.close()
             return city
@@ -49,21 +41,28 @@ class Database:
             print(f"❌ Ошибка загрузки деталей города: {e}")
             return None
     
+    # database.py
     def get_statistics(self):
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            cursor.execute('SELECT COUNT(*) FROM letters')
+            # Вместо COUNT(*) из letters, считаем уникальные письма
+            cursor.execute('SELECT COUNT(DISTINCT content) FROM letters WHERE content != ""')
             total_letters = cursor.fetchone()[0]
+            
+            # Альтернативный метод: если хотите точнее считать
+            # cursor.execute('SELECT COUNT(*) FROM (SELECT DISTINCT content, year FROM letters WHERE content != "")')
+            # total_letters = cursor.fetchone()[0]
             
             cursor.execute('SELECT COUNT(*) FROM cities')
             total_cities = cursor.fetchone()[0]
             
-            cursor.execute('SELECT theme, COUNT(*) FROM letters GROUP BY theme')
+            # Для тем и тональности используем DISTINCT
+            cursor.execute('SELECT theme, COUNT(DISTINCT content) FROM letters WHERE content != "" GROUP BY theme')
             themes = [{"theme": row[0] or "другое", "count": row[1]} for row in cursor.fetchall()]
             
-            cursor.execute('SELECT sentiment, COUNT(*) FROM letters GROUP BY sentiment')
+            cursor.execute('SELECT sentiment, COUNT(DISTINCT content) FROM letters WHERE content != "" GROUP BY sentiment')
             sentiments = [{"sentiment": row[0] or "neutral", "count": row[1]} for row in cursor.fetchall()]
             
             cursor.execute('SELECT MIN(year), MAX(year) FROM letters WHERE year IS NOT NULL')
@@ -72,17 +71,13 @@ class Database:
             
             conn.close()
             
-            stats = {
+            return {
                 "total_letters": total_letters,
                 "total_cities": total_cities,
                 "years_range": years_range,
                 "popular_themes": sorted(themes, key=lambda x: x["count"], reverse=True)[:5],
                 "sentiment_distribution": sentiments
             }
-            
-            print(f"✅ Статистика: {total_letters} писем, {total_cities} городов")
-            return stats
-            
         except Exception as e:
             print(f"❌ Ошибка загрузки статистики: {e}")
             return {

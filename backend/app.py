@@ -1,4 +1,3 @@
-# app.py
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -7,6 +6,9 @@ from database import db
 from typing import List, Optional
 import os
 import sqlite3
+
+# Импортируем инициализатор базы данных ПЕРВЫМ
+import db_init
 
 app = FastAPI(title="Postcard Analytics", version="1.0.0")
 
@@ -29,7 +31,7 @@ app.mount("/js", StaticFiles(directory="../frontend/js"), name="js")
 async def read_index():
     return FileResponse("../frontend/index.html")
 
-# API endpoints - ДОЛЖНЫ БЫТЬ ДО catch-all роута!
+# API endpoints
 @app.get("/api/")
 async def read_root():
     return {"message": "Postcard Analytics API"}
@@ -68,7 +70,7 @@ def get_letters(
                     continue
                 all_letters.append(letter)
     
-    return all_letters
+    return all_letters[:50]
 
 @app.get("/api/search")
 def search_letters(
@@ -122,7 +124,7 @@ def test_data():
         "message": "Данные из базы"
     }
 
-# Catch-all роут для фронтенда - ДОЛЖЕН БЫТЬ ПОСЛЕДНИМ!
+# Catch-all роут для фронтенда
 @app.get("/{path:path}")
 async def serve_frontend(path: str):
     frontend_path = f"../frontend/{path}"
